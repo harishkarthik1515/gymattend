@@ -12,9 +12,9 @@ import {
   Calendar,
   Trophy,
 } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { GymStats } from '@/lib/types';
+import type { GymStats, Member } from '@/lib/types';
 
 interface HomeProps {
   onNavigate: (page: string) => void;
@@ -32,25 +32,33 @@ export function Home({ onNavigate }: HomeProps) {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const membersRef = collection(db, 'members');
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      try {
+        const membersRef = collection(db, 'members');
+        const membersSnapshot = await getDocs(membersRef);
+        const allMembers = membersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Member[];
 
-      const [totalMembers, activeMembers, todayCheckIns, pendingPayments] = await Promise.all([
-        getDocs(membersRef),
-        getDocs(query(membersRef, where('status', '==', 'Active'))),
-        getDocs(query(membersRef, where('lastCheckIn', '>=', today))),
-        getDocs(query(membersRef, where('paymentStatus', '==', 'Pending'))),
-      ]);
+        const activeMembersCount = allMembers.filter(m => m.status === 'Active').length;
+        const pendingPaymentsCount = allMembers.filter(m => m.paymentStatus === 'Pending').length;
 
-      setStats({
-        totalMembers: totalMembers.size,
-        activeMembers: activeMembers.size,
-        todayCheckIns: todayCheckIns.size,
-        pendingPayments: pendingPayments.size,
-        revenueThisMonth: 25000, // Example value
-        newMembersThisMonth: 15, // Example value
-      });
+        const todayStr = new Date().toDateString();
+        const todayCheckInCount = allMembers.filter(m =>
+          m.attendanceHistory?.some(a => new Date(a.date).toDateString() === todayStr)
+        ).length;
+
+        setStats({
+          totalMembers: allMembers.length,
+          activeMembers: activeMembersCount,
+          todayCheckIns: todayCheckInCount,
+          pendingPayments: pendingPaymentsCount,
+          revenueThisMonth: 25000,
+          newMembersThisMonth: 15,
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
     };
 
     fetchStats();

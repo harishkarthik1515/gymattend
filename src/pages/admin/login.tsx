@@ -21,13 +21,6 @@ export function Login({ onNavigate, onLogin }: LoginProps) {
     e.preventDefault();
     setLoading(true);
 
-    if (email === 'admin@gym.com' && password === 'admin123') {
-      toast.success('Login successful (Local Bypass)!');
-      onLogin();
-      setLoading(false);
-      return;
-    }
-
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success('Login successful!');
